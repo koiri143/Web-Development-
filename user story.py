@@ -9,6 +9,7 @@ API_URL = "https://api.thingspeak.com/channels/2578404/feeds.json?api_key=XSXF6W
 TIMEZONE_OFFSET = "+02:00"
 FRIEND_DATA_FILE = "friend_data.json"
 SENSOR_DATA_FILE = "sensor_readings.json"
+SCOREBOARD_FILE = "scoreboard.json"
 
 def is_valid_birth_date(date_str):
     try:
@@ -97,6 +98,60 @@ def fetch_sensor_data():
         print(f"Error fetching sensor data: {e}")
         return []
 
+def play_number_guessing_game():
+    print("\nWelcome to the Number Guessing Game!")
+    print("I have picked a random number between 1 and 100.")
+    print("You have 8 chances to guess it correctly!")
+
+    target_number = random.randint(1, 100)
+    attempts = 0
+    max_attempts = 8
+
+    while attempts < max_attempts:
+        guess = input(f"Attempt {attempts + 1}/{max_attempts}. Enter your guess (or type 'quit' to exit): ").strip()
+
+        if guess.lower() == "quit":
+            print("You exited the game.")
+            return None
+
+        if not guess.isdigit():
+            print("Please enter a valid number.")
+            continue
+
+        guess = int(guess)
+        attempts += 1
+
+        if guess == target_number:
+            print(f"Congratulations! You guessed the number in {attempts} attempts.")
+            return attempts
+        elif guess < target_number:
+            print("Too low! Try again.")
+        else:
+            print("Too high! Try again.")
+
+    print(f"Sorry, you've used all {max_attempts} attempts. The correct number was {target_number}.")
+    return None
+
+def update_scoreboard(username, attempts):
+    try:
+        scoreboard = []
+        if os.path.exists(SCOREBOARD_FILE):
+            with open(SCOREBOARD_FILE, "r") as file:
+                scoreboard = json.load(file)
+
+        if attempts:
+            scoreboard.append({"username": username, "attempts": attempts})
+
+        with open(SCOREBOARD_FILE, "w") as file:
+            json.dump(scoreboard, file, indent=4)
+
+        print("\nCurrent Scoreboard:")
+        for entry in scoreboard:
+            print(f"{entry['username']}: {entry['attempts']} attempts")
+
+    except Exception as e:
+        print(f"Error updating scoreboard: {e}")
+
 def main():
     print("Hey there, welcome to the Monitoring App!\n")
 
@@ -148,7 +203,8 @@ def main():
     while True:
         print("\nMenu:")
         print("1. Check Sensor Status from API")
-        print("2. Exit")
+        print("2. Play Number Guessing Game")
+        print("3. Exit")
 
         option = input("Choose an option: ").strip()
 
@@ -162,16 +218,25 @@ def main():
                 motion_status = "Motion detected" if point["motion"] == "1" else "No motion"
                 temperature_c = float(point["temperature"])
                 temperature = temperature_c if unit == "C" else temperature_c * 9/5 + 32
-                unit_label = "°C" if unit == "C" else "°F"
-                temp_status = check_cpu_temperature_status(temperature_c)
-                print("Fetching data...")
-
-                print(f"Timestamp: {point['timestamp']}, {motion_status}, Temperature: {temperature:.2f}{unit_label} ({temp_status})")
+                unit_label = "\u00b0C" if unit == "C" else "\u00b0F"
+                print(f"Timestamp: {point['timestamp']}")
+                print(f"Motion: {motion_status}")
+                print(f"Temperature: {temperature:.2f}{unit_label}")
+                print(f"Status: {check_cpu_temperature_status(temperature_c)}")
+                print("-" * 40)
 
         elif option == "2":
-            print("seeyouagain! Exiting the program.")
-            break
-        else:
-            print("Invalid option. Please try again.")
+            attempts = play_number_guessing_game()
+            if attempts is not None:
+                update_scoreboard(username, attempts)
 
-main()
+        elif option == "3":
+            print("Thank you for using the Monitoring App. Goodbye!")
+            break
+
+        else:
+            print("Invalid choice. Please select a valid option.")
+
+if __name__ == "__main__":
+    main()
+
